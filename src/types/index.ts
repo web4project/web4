@@ -1,4 +1,4 @@
-export type ItemType = 'note' | 'link' | 'checklist' | 'wallet' | 'code';
+export type ItemType = 'note' | 'link' | 'checklist' | 'wallet' | 'code' | 'password';
 
 export interface ChecklistItem {
   id: string;
@@ -27,6 +27,14 @@ export interface VaultItem {
   nonce: string;
 }
 
+export interface Attachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  data: string; // base64 string
+}
+
 export interface ItemPayload {
   title: string;
   body: string;
@@ -35,6 +43,7 @@ export interface ItemPayload {
   type: ItemType;
   checklistItems?: ChecklistItem[];
   language?: string;
+  attachments?: Attachment[];
 }
 
 export interface DecryptedItem extends ItemPayload {
@@ -73,6 +82,9 @@ export interface VaultSettings {
   autoLockMinutes: number;
   reducedMotion: boolean;
   vaultName: string;
+  theme?: 'cyberpunk' | 'minimal-light' | 'matrix';
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
 }
 
 export interface ExportFile {

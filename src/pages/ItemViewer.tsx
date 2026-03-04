@@ -1,14 +1,18 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit3, Trash2, Pin, Copy, Check, StickyNote, Link, CheckSquare, Wallet, Code } from 'lucide-react';
+import { ArrowLeft, Edit3, Trash2, Pin, Copy, Check, StickyNote, Link, CheckSquare, Wallet, Code, Key, Eye, EyeOff, Paperclip } from 'lucide-react';
 import { useVault } from '../context/VaultContext';
 import { MemoryEditor } from '../components/vault/MemoryEditor';
 import { TagChips } from '../components/ui/TagInput';
 import { toast } from '../hooks/useToast';
 import type { ItemPayload } from '../types';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/atom-one-dark.css';
 
 const TYPE_ICONS: Record<string, typeof StickyNote> = {
-  note: StickyNote, link: Link, checklist: CheckSquare, wallet: Wallet, code: Code,
+  note: StickyNote, link: Link, checklist: CheckSquare, wallet: Wallet, code: Code, password: Key,
 };
 
 export function ItemViewer() {
@@ -18,6 +22,7 @@ export function ItemViewer() {
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const item = useMemo(() => items.find((i) => i.id === id), [items, id]);
 
@@ -132,15 +137,61 @@ export function ItemViewer() {
             ) : item.type === 'code' ? (
               <div>
                 {item.language && <div className="mb-2 text-[10px] text-accent/70 border border-accent/20 rounded px-2 py-0.5 inline-block">{item.language}</div>}
-                <pre className="rounded-xl border border-border bg-surface-3 p-4 text-xs font-mono text-text leading-relaxed overflow-x-auto whitespace-pre-wrap">{item.body}</pre>
+                <div className="rounded-xl border border-border bg-surface-3 p-4 text-xs font-mono text-text leading-relaxed overflow-x-auto">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+                    {`\`\`\`${item.language || ''}\n${item.body}\n\`\`\``}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            ) : item.type === 'password' ? (
+              <div className="relative group">
+                <div className={`p-4 rounded-xl border border-border bg-surface-3 transition-all duration-300 font-mono text-text break-all ${showPassword ? '' : 'blur-sm select-none opacity-50'}`}>
+                  {item.body}
+                </div>
+                <button
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-text-dim hover:text-accent transition-colors bg-surface-3 rounded-md p-1 border border-border-2 opacity-0 group-hover:opacity-100"
+                >
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
               </div>
             ) : (
-              item.body && <p className="text-sm text-text-muted leading-relaxed whitespace-pre-wrap">{item.body}</p>
+              item.body && (
+                <div className="markdown-content text-sm text-text-muted leading-relaxed whitespace-pre-wrap">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+                    {item.body}
+                  </ReactMarkdown>
+                </div>
+              )
             )}
 
             {item.tags.length > 0 && (
               <div className="mt-4 pt-4 border-t border-border">
                 <TagChips tags={item.tags} size="md" />
+              </div>
+            )}
+
+            {item.attachments && item.attachments.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-border space-y-3">
+                <h3 className="text-xs font-medium text-text-muted">Attachments</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {item.attachments.map(a => (
+                    a.type.startsWith('image/') ? (
+                      <div key={a.id} className="relative aspect-square rounded-lg border border-border overflow-hidden bg-surface-3 group">
+                        <img src={a.data} alt={a.name} className="absolute inset-0 w-full h-full object-cover" />
+                        <a href={a.data} download={a.name} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs font-medium text-white backdrop-blur-sm">
+                          Download
+                        </a>
+                      </div>
+                    ) : (
+                      <a key={a.id} href={a.data} download={a.name} className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg border border-border bg-surface-3 hover:border-accent/30 hover:bg-surface-2 transition-all aspect-square text-center">
+                        <Paperclip size={24} className="text-accent/50" />
+                        <span className="text-[11px] font-medium text-text line-clamp-2 px-2">{a.name}</span>
+                        <span className="text-[10px] text-text-dim">{(a.size / 1024).toFixed(0)} KB</span>
+                      </a>
+                    )
+                  ))}
+                </div>
               </div>
             )}
           </div>

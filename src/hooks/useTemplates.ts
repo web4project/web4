@@ -70,10 +70,8 @@ function loadCustomTemplates(): VaultTemplate[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
-    return [];
-  } catch {
-    return [];
-  }
+  } catch {}
+  return [];
 }
 
 function saveCustomTemplates(templates: VaultTemplate[]) {

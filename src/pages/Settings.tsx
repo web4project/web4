@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Download, Upload, RefreshCw, Trash2, AlertTriangle, Shield, Eye } from 'lucide-react';
+import { Lock, Download, Upload, RefreshCw, Trash2, AlertTriangle, Shield, Eye, Cloud } from 'lucide-react';
 import { useVault } from '../context/VaultContext';
 import { buildSearchIndex } from '../lib/search';
 import { clearAllData } from '../lib/db';
 import { ImportExportModal } from '../components/vault/ImportExportModal';
+import { syncWithSupabase } from '../lib/sync';
 import { toast } from '../hooks/useToast';
 
 export function Settings() {
@@ -21,6 +22,28 @@ export function Settings() {
       toast('Search index rebuilt', 'success');
     } finally {
       setRebuilding(false);
+    }
+  };
+
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
+
+  const handleSync = async () => {
+    if (!settings.supabaseUrl || !settings.supabaseAnonKey) {
+      toast('Please enter Supabase credentials first', 'error');
+      return;
+    }
+    setSyncing(true);
+    setSyncMessage('Starting sync...');
+    try {
+      await syncWithSupabase(settings.supabaseUrl, settings.supabaseAnonKey, setSyncMessage);
+      toast('Cloud sync completed seamlessly!', 'success');
+      setTimeout(() => window.location.reload(), 1500); // Reload to reflect merged state if needed
+    } catch (err: any) {
+      toast(err.message || 'Sync failed', 'error');
+      setSyncMessage('');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -46,6 +69,12 @@ export function Settings() {
     { value: 15, label: '15 minutes' },
     { value: 30, label: '30 minutes' },
     { value: 60, label: '1 hour' },
+  ];
+
+  const THEME_OPTIONS = [
+    { value: 'cyberpunk', label: 'Neon Dark (Cyberpunk)' },
+    { value: 'minimal-light', label: 'Minimal Light' },
+    { value: 'matrix', label: 'Matrix Green' },
   ];
 
   return (
@@ -87,6 +116,45 @@ export function Settings() {
           </div>
         </Section>
 
+        <Section icon={Cloud} title="Cloud Sync (BYOC)">
+          <div className="space-y-4">
+            <p className="text-xs text-text-muted leading-relaxed">
+              Connect your own Supabase database to sync your encrypted vault across devices. Create a table named <code>vault_sync</code> with columns <code>id</code> (text, primary key) and <code>data</code> (jsonb).
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-text-muted mb-1 block">Supabase Project URL</label>
+                <input
+                  type="url"
+                  placeholder="https://xyz.supabase.co"
+                  value={settings.supabaseUrl || ''}
+                  onChange={(e) => updateSettings({ supabaseUrl: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-dim outline-none focus:border-accent/50 transition-all font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-text-muted mb-1 block">Supabase Anon Key</label>
+                <input
+                  type="password"
+                  placeholder="eyJh..."
+                  value={settings.supabaseAnonKey || ''}
+                  onChange={(e) => updateSettings({ supabaseAnonKey: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-dim outline-none focus:border-accent/50 transition-all font-mono"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleSync}
+              disabled={syncing || !settings.supabaseUrl || !settings.supabaseAnonKey}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3 text-sm font-semibold text-black hover:bg-accent-dim disabled:opacity-40 transition-all mt-4"
+            >
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+              {syncing ? syncMessage || 'Syncing...' : 'Sync Now'}
+            </button>
+          </div>
+        </Section>
+
         <Section icon={Download} title="Backup & Restore">
           <div className="space-y-3">
             <p className="text-xs text-text-muted leading-relaxed">
@@ -112,6 +180,22 @@ export function Settings() {
         <Section icon={Eye} title="Appearance">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-text">Theme</p>
+                <p className="text-xs text-text-muted mt-0.5">Choose your vault's look</p>
+              </div>
+              <select
+                value={settings.theme || 'cyberpunk'}
+                onChange={(e) => updateSettings({ theme: e.target.value as any })}
+                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text outline-none focus:border-accent/50 transition-all"
+              >
+                {THEME_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-border">
               <div>
                 <p className="text-sm font-medium text-text">Reduced motion</p>
                 <p className="text-xs text-text-muted mt-0.5">Minimize animations</p>

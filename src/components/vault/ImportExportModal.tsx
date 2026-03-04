@@ -28,7 +28,7 @@ export function ImportExportModal({ onClose }: ImportExportModalProps) {
       URL.revokeObjectURL(url);
       toast('Vault exported successfully', 'success');
       onClose();
-    } catch {
+    } catch (err) {
       toast('Export failed', 'error');
     } finally {
       setLoading(false);

@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import type { DecryptedItem, ItemPayload, VaultMeta, VaultSettings } from '../types';
 import { addItem, updateItem, deleteItem, lockVault } from '../lib/vault';
@@ -31,16 +30,15 @@ const DEFAULT_SETTINGS: VaultSettings = {
   autoLockMinutes: 5,
   reducedMotion: false,
   vaultName: 'My Vault',
+  theme: 'cyberpunk',
 };
 
 function loadSettings(): VaultSettings {
   try {
     const raw = localStorage.getItem('web4project:settings');
     if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-    return DEFAULT_SETTINGS;
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
+  } catch { }
+  return DEFAULT_SETTINGS;
 }
 
 export function VaultProvider({ children }: { children: React.ReactNode }) {
@@ -100,8 +98,17 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setSettings((prev) => {
       const next = { ...prev, ...partial };
       localStorage.setItem('web4project:settings', JSON.stringify(next));
+      if (next.theme) {
+        document.documentElement.setAttribute('data-theme', next.theme);
+      }
       return next;
     });
+  }, []);
+
+  useEffect(() => {
+    if (settings.theme) {
+      document.documentElement.setAttribute('data-theme', settings.theme);
+    }
   }, []);
 
   const addMemory = useCallback(async (payload: ItemPayload): Promise<DecryptedItem> => {

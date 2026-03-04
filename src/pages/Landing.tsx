@@ -31,7 +31,7 @@ export function Landing() {
       <div className="dot-grid" />
       <div className="relative z-10">
         <section className="relative flex min-h-[90vh] flex-col items-center justify-center px-6 text-center overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(158,251,79,0.04)_0%,transparent_70%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,theme(colors.accent/4%)_0%,transparent_70%)] pointer-events-none" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-accent/3 blur-[120px] pointer-events-none" />
 
           <div className="relative z-10 max-w-3xl">
@@ -138,6 +138,7 @@ export function Landing() {
             <button onClick={() => navigate('/privacy')} className="hover:text-text-muted transition-colors">Privacy</button>
             <button onClick={() => navigate('/how')} className="hover:text-text-muted transition-colors">How it Works</button>
             <a href="https://x.com/web4_infinity" target="_blank" rel="noopener noreferrer" className="hover:text-text-muted transition-colors">𝕏</a>
+            <a href="https://github.com/web4project" target="_blank" rel="noopener noreferrer" className="hover:text-text-muted transition-colors">GitHub</a>
           </div>
         </footer>
       </div>

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { StickyNote, Link, CheckSquare, Wallet, Code, ChevronDown } from 'lucide-react';
-import type { ItemType, ItemPayload, ChecklistItem } from '../../types';
+import { StickyNote, Link, CheckSquare, Wallet, Code, ChevronDown, Key, RefreshCw, Paperclip, X } from 'lucide-react';
+import type { ItemType, ItemPayload, ChecklistItem, Attachment } from '../../types';
 import { TagInput } from '../ui/TagInput';
 import { uuidv4 } from '../../utils/uuid';
+import { generatePassword } from '../../lib/password';
 
 const TYPE_OPTIONS: { type: ItemType; label: string; icon: typeof StickyNote }[] = [
   { type: 'note', label: 'Note', icon: StickyNote },
@@ -10,6 +11,7 @@ const TYPE_OPTIONS: { type: ItemType; label: string; icon: typeof StickyNote }[]
   { type: 'checklist', label: 'Checklist', icon: CheckSquare },
   { type: 'wallet', label: 'Wallet Address', icon: Wallet },
   { type: 'code', label: 'Code Snippet', icon: Code },
+  { type: 'password', label: 'Password', icon: Key },
 ];
 
 const LANGUAGES = ['javascript', 'typescript', 'python', 'rust', 'go', 'solidity', 'bash', 'sql', 'json', 'yaml', 'other'];
@@ -32,7 +34,33 @@ export function MemoryEditor({ initialPayload, onSubmit, submitLabel = 'Save', o
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(
     initialPayload?.checklistItems ?? [{ id: uuidv4(), text: '', checked: false }]
   );
+  const [attachments, setAttachments] = useState<Attachment[]>(initialPayload?.attachments ?? []);
   const [showTypeMenu, setShowTypeMenu] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`File ${file.name} is too large. Max 5MB.`);
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachments(prev => [...prev, {
+          id: uuidv4(),
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          data: reader.result as string,
+        }]);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== id));
+  };
 
   const buildPayload = (): ItemPayload => ({
     type,
@@ -42,6 +70,7 @@ export function MemoryEditor({ initialPayload, onSubmit, submitLabel = 'Save', o
     pinned,
     language: type === 'code' ? language : undefined,
     checklistItems: type === 'checklist' ? checklistItems.filter((i) => i.text.trim()) : undefined,
+    attachments: attachments.length > 0 ? attachments : undefined,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,22 +171,44 @@ export function MemoryEditor({ initialPayload, onSubmit, submitLabel = 'Save', o
           <button type="button" onClick={addChecklistItem} className="text-xs text-accent hover:text-accent-dim transition-colors">+ Add item</button>
         </div>
       ) : (
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder={type === 'code' ? 'Paste your code here...' : type === 'wallet' ? 'Wallet address...' : type === 'link' ? 'https://...' : 'Write anything...'}
-          rows={type === 'code' ? 10 : 5}
-          className={[
-            'w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text placeholder:text-text-dim outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20 transition-all resize-y',
-            type === 'code' ? 'font-mono text-xs leading-relaxed' : '',
-          ].join(' ')}
-        />
+        <div className="space-y-2">
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder={type === 'code' ? 'Paste your code here...' : type === 'wallet' ? 'Wallet address...' : type === 'password' ? 'Password...' : type === 'link' ? 'https://...' : 'Write anything...'}
+            rows={type === 'code' ? 10 : type === 'password' ? 2 : 5}
+            className={[
+              'w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text placeholder:text-text-dim outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20 transition-all resize-y',
+              type === 'code' || type === 'password' ? 'font-mono text-xs leading-relaxed' : '',
+            ].join(' ')}
+          />
+          {type === 'password' && (
+            <button
+              type="button"
+              onClick={() => setBody(generatePassword())}
+              className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent-dim transition-colors"
+            >
+              <RefreshCw size={12} /> Generate Secure Password
+            </button>
+          )}
+        </div>
       )}
 
       <div>
         <label className="mb-1.5 block text-xs font-medium text-text-muted">Tags</label>
         <TagInput tags={tags} onChange={setTags} />
       </div>
+
+      {attachments.length > 0 && (
+        <div className="space-y-2">
+          {attachments.map(a => (
+            <div key={a.id} className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-surface-3">
+              <span className="text-xs font-medium text-text truncate max-w-[80%]">{a.name} ({(a.size / 1024).toFixed(1)} KB)</span>
+              <button type="button" onClick={() => removeAttachment(a.id)} className="text-text-dim hover:text-error transition-colors p-1"><X size={12} /></button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <button
@@ -167,6 +218,10 @@ export function MemoryEditor({ initialPayload, onSubmit, submitLabel = 'Save', o
         >
           📌 {pinned ? 'Pinned' : 'Pin'}
         </button>
+        <label className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs font-medium text-text-muted hover:border-border-2 transition-all cursor-pointer">
+          <Paperclip size={12} /> Attach File (Max 5MB)
+          <input type="file" multiple className="hidden" onChange={handleFileChange} />
+        </label>
       </div>
 
       <div className="flex gap-3 pt-2">

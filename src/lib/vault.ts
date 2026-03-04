@@ -160,5 +160,5 @@ export async function importVault(data: ExportFile, overwrite: boolean): Promise
 }
 
 export function lockVault(key: Uint8Array): void {
-  try { wipeKey(key); } catch { return; }
+  try { wipeKey(key); } catch {}
 }

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pin, Clock, LayoutTemplate, Sparkles, BarChart3, FileText, Link, CheckSquare, Wallet, Code, ArrowRight } from 'lucide-react';
+import { Plus, Pin, Clock, LayoutTemplate, Sparkles, BarChart3, FileText, Link, CheckSquare, Wallet, Code, ArrowRight, Key } from 'lucide-react';
 import { useVault } from '../context/VaultContext';
 import { BentoCard } from '../components/ui/BentoCard';
 import { TagChips } from '../components/ui/TagInput';
@@ -13,6 +13,7 @@ const TYPE_ICONS: Record<string, typeof FileText> = {
   checklist: CheckSquare,
   wallet: Wallet,
   code: Code,
+  password: Key,
 };
 
 function MemoryRow({ item, onClick }: { item: DecryptedItem; onClick: () => void }) {

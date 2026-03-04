@@ -3,6 +3,7 @@ import { Send, Sparkles, Pin } from 'lucide-react';
 import { searchItems } from '../../lib/search';
 import { useVault } from '../../context/VaultContext';
 import type { DecryptedItem } from '../../types';
+import { CreateMLCEngine, type MLCEngine } from '@mlc-ai/web-llm';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -21,7 +22,32 @@ export function AskVaultPanel({ compact = false }: AskVaultPanelProps) {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [engine, setEngine] = useState<MLCEngine | null>(null);
+  const [initProgress, setInitProgress] = useState<string>('');
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const initEngine = async () => {
+    if (engine) return;
+    setLoading(true);
+    setInitProgress('Checking WebGPU support and loading AI model...');
+    try {
+      const newEngine = await CreateMLCEngine('Phi-3.5-mini-instruct-q4f16_1-MLC', {
+        initProgressCallback: (progress) => {
+          setInitProgress(progress.text);
+        },
+      });
+      setEngine(newEngine);
+      setInitProgress('');
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'True Local AI engine loaded! I can now read your vault memories and answer complex questions offline.' }
+      ]);
+    } catch (e: any) {
+      console.error(e);
+      setInitProgress(`Failed to load AI: ${e.message}`);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,16 +69,31 @@ export function AskVaultPanel({ compact = false }: AskVaultPanelProps) {
       .map((r) => items.find((i) => i.id === r.id))
       .filter((i): i is DecryptedItem => !!i);
 
-    let response = '';
-    if (matched.length === 0) {
-      response = `No memories found matching "${q}". Try different keywords or add a new memory.`;
-    } else if (matched.length === 1) {
-      response = `Found 1 memory matching your query:`;
-    } else {
-      response = `Found ${matched.length} memories matching "${q}":`;
+    const contextStr = matched.map((m) => `[${m.title}]: ${m.body}`).join('\n\n');
+
+    if (!engine) {
+      // Fallback to simple simulated response
+      let response = '';
+      if (matched.length === 0) response = `No memories found matching "${q}". Try different keywords or add a new memory.`;
+      else if (matched.length === 1) response = `Found 1 memory matching your query:`;
+      else response = `Found ${matched.length} memories matching "${q}":`;
+      setMessages((prev) => [...prev, { role: 'assistant', content: response, results: matched }]);
+      setLoading(false);
+      return;
     }
 
-    setMessages((prev) => [...prev, { role: 'assistant', content: response, results: matched }]);
+    try {
+      const prompt = `You are a helpful vault assistant. Use ONLY the following user memories to answer their question. If the answer is not in the memories, say you don't know.\n\nMemories:\n${contextStr}\n\nQuestion: ${q}`;
+      const reply = await engine.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+      });
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: reply.choices[0].message.content || 'No response.', results: matched }
+      ]);
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'An error occurred during AI processing.' }]);
+    }
     setLoading(false);
   };
 
@@ -63,6 +104,22 @@ export function AskVaultPanel({ compact = false }: AskVaultPanelProps) {
 
   return (
     <div className={`flex flex-col ${compact ? 'h-80' : 'h-full min-h-96'}`}>
+      {!engine && !initProgress && (
+        <div className="mb-4 rounded-xl border border-accent/20 bg-accent/5 p-4 text-center">
+          <p className="text-sm text-text-muted mb-3">Optional: the AskVault uses simple keyword matching by default. You can enable True Local AI (Phi 3.5) to answer complex questions.</p>
+          <button onClick={initEngine} className="text-xs font-semibold text-accent border border-accent/30 rounded-lg px-3 py-1.5 hover:bg-accent/10 transition-colors">
+            Download & Enable True Local AI (~2GB)
+          </button>
+        </div>
+      )}
+
+      {initProgress && (
+        <div className="mb-4 rounded-xl border border-border bg-surface-3 p-3 flex items-center gap-3">
+          <div className="h-4 w-4 rounded-full border-2 border-accent border-t-transparent animate-spin shrink-0" />
+          <p className="text-xs text-text-dim break-all">{initProgress}</p>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto space-y-4 pr-1" style={{ scrollbarWidth: 'thin' }}>
         {messages.map((msg, i) => (
           <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
